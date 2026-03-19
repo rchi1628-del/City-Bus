@@ -7,353 +7,63 @@
   <title>城巴實時到站 · Citybus Live ETA</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
-
     :root{
-      --bg:#0f1117;
-      --card:#1a1f2e;
-      --border:#2d3748;
-      --text:#e2e8f0;
-      --muted:#718096;
-      --accent:#f6ad55;
-      --accent2:#ed8936;
-      --green:#68d391;
-      --yellow:#f6ad55;
-      --red:#fc8181;
+      --bg:#0f1117; --card:#1a1f2e; --border:#2d3748;
+      --text:#e2e8f0; --muted:#718096; --accent:#f6ad55;
+      --accent2:#ed8936; --green:#68d391; --red:#fc8181;
     }
-
     body{
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
-      background:var(--bg);
-      color:var(--text);
-      min-height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--bg); color:var(--text); min-height:100vh;
       -webkit-text-size-adjust:100%;
     }
-
-    /* ── Header ── */
     header{
       background:linear-gradient(135deg,#1a1f2e,#16213e);
-      border-bottom:1px solid var(--border);
-      padding:12px 16px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      position:sticky;top:0;z-index:100;
+      border-bottom:1px solid var(--border); padding:12px 16px;
+      display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:100;
     }
     .bus-icon{
-      width:40px;height:40px;
-      background:linear-gradient(135deg,var(--accent),var(--accent2));
-      border-radius:10px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:20px;flex-shrink:0;
+      width:40px; height:40px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px;
     }
-    header h1{font-size:1.05rem;font-weight:700;color:#fff;line-height:1.2;}
-    header p{font-size:0.7rem;color:var(--muted);margin-top:1px;}
-    .header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
-
-    .lang-btn{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:20px;
-      padding:5px 10px;
-      font-size:0.75rem;font-weight:700;
-      color:var(--text);
-      cursor:pointer;
-    }
-
-    .live-badge{
-      display:flex;align-items:center;gap:5px;
-      background:#1a2a1a;
-      border:1px solid #276227;
-      border-radius:20px;
-      padding:5px 10px;
-      font-size:0.7rem;font-weight:700;color:var(--green);
-    }
-    .live-dot{
-      width:7px;height:7px;background:var(--green);border-radius:50%;
-      animation:pulse 1.5s infinite;
-    }
-    @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
-
-    /* ── Container ── */
-    .container{max-width:780px;margin:0 auto;padding:14px 12px;}
-
-    /* ── Controls ── */
+    .container{max-width:780px; margin:0 auto; padding:14px 12px;}
+    
+    /* Search & Controls */
     .controls{
-      background:var(--card);
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:14px;
-      display:flex;flex-direction:column;gap:12px;
-      margin-bottom:14px;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; margin-bottom:14px;
     }
-    .ctrl-row{display:flex;gap:10px;flex-wrap:wrap;}
-    .ctrl-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
-    .ctrl-group label{font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;}
-    
+    .search-row{ display:flex; gap:8px; }
     input[type="text"], select{
-      background:var(--bg);border:1px solid var(--border);border-radius:8px;
-      color:var(--text);padding:9px 10px;font-size:0.88rem;width:100%;
-      outline:none;
+      background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); padding:10px; font-size:0.9rem; width:100%; outline:none;
     }
-    input[type="text"]:focus, select:focus{border-color:var(--accent);}
-
-    .btn-row{display:flex;gap:8px;margin-top:5px;}
-    button{
+    input[type="text"]:focus, select:focus{ border-color:var(--accent); }
+    
+    .btn-clear{
+      background:var(--border); color:var(--text); border:none; 
+      padding:0 15px; border-radius:8px; cursor:pointer; font-size:0.8rem; white-space:nowrap;
+    }
+    button.primary{
       background:linear-gradient(135deg,var(--accent),var(--accent2));
-      color:#1a1f2e;border:none;border-radius:8px;
-      padding:10px 16px;font-size:0.88rem;font-weight:700;
-      cursor:pointer;flex:1;
+      color:#1a1f2e; border:none; border-radius:8px; padding:12px; font-weight:700; width:100%;
+      cursor:pointer; transition: transform 0.1s;
     }
-    .refresh-btn{
-      background:none;color:#63b3ed;
-      border:1px solid #2b4a6f;
+    button.primary:active{ transform: scale(0.98); }
+
+    /* Stop Cards */
+    .stop-list{display:flex; flex-direction:column; gap:8px;}
+    .stop-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .stop-header{ display:flex; align-items:center; gap:12px; padding:14px; cursor:pointer; }
+    .stop-seq{ 
+        width:28px; height:28px; border-radius:50%; background:#2d3748; 
+        display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:bold;
     }
+    .stop-names{ flex:1; }
+    .stop-names .zh{ font-weight:700; font-size:0.95rem; }
+    .stop-names .en{ font-size:0.75rem; color:var(--muted); margin-top:2px; }
 
-    /* ── Stats ── */
-    .stats{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
-      gap:10px;margin-bottom:14px;
-    }
-    .stat-card{
-      background:var(--card);border:1px solid var(--border);
-      border-radius:10px;padding:12px 14px;
-    }
-    .stat-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;}
-    .stat-value{font-size:1.45rem;font-weight:700;color:#fff;}
-    .stat-sub{font-size:0.72rem;color:var(--muted);}
-
-    /* ── Stop list ── */
-    .stop-list{display:flex;flex-direction:column;gap:8px;}
-    .stop-card{
-      background:var(--card);border:1px solid var(--border);
-      border-radius:10px;overflow:hidden;
-    }
-    .stop-header{
-      display:flex;align-items:center;gap:10px;
-      padding:12px 14px;cursor:pointer;
-    }
-    .stop-seq{
-      width:30px;height:30px;border-radius:50%;
-      background:#2d3748;display:flex;align-items:center;justify-content:center;
-      font-size:.72rem;font-weight:700;color:#a0aec0;
-    }
-    .stop-name{flex:1;}
-    .stop-name .en{font-size:.9rem;font-weight:600;}
-    .stop-name .zh{font-size:.78rem;color:var(--muted);}
-    
-    .eta-panel{border-top:1px solid var(--border);padding:10px 14px;display:none;}
-    .eta-panel.open{display:block;}
-
-    .eta-row{
-      display:flex;align-items:center;gap:9px;
-      padding:8px 11px;background:var(--bg);border-radius:8px;margin-bottom:5px;
-    }
-    .eta-pill{font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:4px;background:#2d3748;}
-    .eta-pill.soon{color:var(--green);background:#1a3a1a;}
-    .eta-mins{font-size:1.05rem;font-weight:700;margin-left:auto;}
-
-    .spinner{
-      display:inline-block;width:12px;height:12px;
-      border:2px solid #2d3748;border-top-color:var(--accent);
-      border-radius:50%;animation:spin .7s linear infinite;
-    }
-    @keyframes spin{to{transform:rotate(360deg);}}
-  </style>
-</head>
-<body>
-
-<header>
-  <div class="bus-icon">🚌</div>
-  <div>
-    <h1 id="hTitle">城巴實時到站</h1>
-    <p id="hSub">Citybus Live ETA</p>
-  </div>
-  <div class="header-right">
-    <button class="lang-btn" onclick="toggleLang()" id="langBtn">ENG</button>
-    <div class="live-badge"><div class="live-dot"></div><span id="liveTxt">直播</span></div>
-  </div>
-</header>
-
-<div class="container">
-  <div class="controls">
-    <div class="ctrl-group">
-      <label id="lblSearch">搜尋路線 Search Route</label>
-      <input type="text" id="routeSearch" placeholder="輸入路線編號 (e.g. 780)...">
-    </div>
-
-    <div class="ctrl-row">
-      <div class="ctrl-group" style="flex:2;">
-        <label id="lblRoute">路線 Route</label>
-        <select id="routeSelect">
-          <option value="">— 載入中 Loading —</option>
-        </select>
-      </div>
-      <div class="ctrl-group">
-        <label id="lblDir">方向 Direction</label>
-        <select id="dirSelect">
-          <option value="outbound">往終點站 Outbound</option>
-          <option value="inbound">往起點站 Inbound</option>
-        </select>
-      </div>
-    </div>
-    
-    <div class="btn-row">
-      <button onclick="loadStops()" id="loadBtn">顯示站點 Show Stops</button>
-      <button class="refresh-btn" onclick="refreshAllOpen()" id="refBtn" disabled>更新 Refresh</button>
-    </div>
-  </div>
-
-  <div class="stats" id="statsRow" style="display:none;">
-    <div class="stat-card">
-      <div class="stat-label">路線 Route</div>
-      <div class="stat-value" id="statRoute">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">更新時間 Updated</div>
-      <div class="stat-value" style="font-size:1rem" id="statTime">—</div>
-    </div>
-  </div>
-
-  <div class="stop-list" id="stopList"></div>
-</div>
-
-<script>
-// --- Configuration & Proxy ---
-// We use AllOrigins proxy to solve the CORS issue on GitHub Pages/iOS
-const PROXY = 'https://api.allorigins.win/raw?url=';
-const BASE_URL = 'https://rt.data.gov.hk/v2/transport/citybus';
-
-let lang = 'zh';
-let allStops = [];
-let openPanels = new Set();
-
-// --- API Fetcher ---
-async function apiFetch(endpoint) {
-  const targetUrl = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
-  const response = await fetch(`${PROXY}${encodeURIComponent(targetUrl)}`);
-  if (!response.ok) throw new Error('Network Error');
-  const json = await response.json();
-  return json.data;
-}
-
-// --- Search Logic ---
-document.getElementById('routeSearch').addEventListener('input', function(e) {
-  const term = e.target.value.toLowerCase();
-  const options = document.getElementById('routeSelect').options;
-  for (let i = 1; i < options.length; i++) {
-    options[i].style.display = options[i].text.toLowerCase().includes(term) ? 'block' : 'none';
-  }
-});
-
-// --- Initialization ---
-async function init() {
-  try {
-    const data = await apiFetch('/route/ctb');
-    const sel = document.getElementById('routeSelect');
-    sel.innerHTML = '<option value="">— 選擇路線 Pick a Route —</option>';
-    data.sort((a,b) => a.route.localeCompare(b.route, undefined, {numeric:true}));
-    data.forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r.route;
-      opt.textContent = `${r.route} (${r.orig_tc} ⇄ ${r.dest_tc})`;
-      sel.appendChild(opt);
-    });
-  } catch (e) {
-    alert("Failed to load routes. Check your internet connection.");
-  }
-}
-
-async function loadStops() {
-  const route = document.getElementById('routeSelect').value;
-  const dir = document.getElementById('dirSelect').value;
-  if(!route) return;
-
-  const list = document.getElementById('stopList');
-  list.innerHTML = '<p style="text-align:center; padding:20px;"><span class="spinner"></span> 載入中 Loading...</p>';
-
-  try {
-    const stopData = await apiFetch(`/route-stop/ctb/${route}/${dir}`);
-    allStops = stopData;
-    
-    list.innerHTML = '';
-    for(let i=0; i < stopData.length; i++) {
-      const stopInfo = await apiFetch(`/stop/${stopData[i].stop}`);
-      const card = document.createElement('div');
-      card.className = 'stop-card';
-      card.innerHTML = `
-        <div class="stop-header" onclick="toggleETA('${stopData[i].stop}', '${route}')">
-          <div class="stop-seq">${i+1}</div>
-          <div class="stop-name">
-            <div class="en">${stopInfo.name_en}</div>
-            <div class="zh">${stopInfo.name_tc}</div>
-          </div>
-          <div style="font-size:0.7rem; color:var(--muted)">▼ ETA</div>
-        </div>
-        <div class="eta-panel" id="panel-${stopData[i].stop}"></div>
-      `;
-      list.appendChild(card);
-    }
-    
-    document.getElementById('statsRow').style.display = 'grid';
-    document.getElementById('statRoute').textContent = route;
-    document.getElementById('statTime').textContent = new Date().toLocaleTimeString();
-    document.getElementById('refBtn').disabled = false;
-  } catch (e) {
-    list.innerHTML = '<p style="color:red; text-align:center;">Load Error. Please try again.</p>';
-  }
-}
-
-async function toggleETA(stopId, route) {
-  const panel = document.getElementById(`panel-${stopId}`);
-  if(panel.classList.contains('open')) {
-    panel.classList.remove('open');
-    openPanels.delete(stopId);
-  } else {
-    panel.classList.add('open');
-    openPanels.add(stopId);
-    fetchETA(stopId, route);
-  }
-}
-
-async function fetchETA(stopId, route) {
-  const panel = document.getElementById(`panel-${stopId}`);
-  panel.innerHTML = '<span class="spinner"></span>';
-  try {
-    const etas = await apiFetch(`/eta/ctb/${stopId}/${route}`);
-    if(!etas || etas.length === 0) {
-      panel.innerHTML = 'No Data';
-      return;
-    }
-    panel.innerHTML = etas.slice(0,3).map((e, idx) => {
-      const diff = Math.max(0, Math.round((new Date(e.eta) - new Date()) / 60000));
-      return `
-        <div class="eta-row">
-          <div class="eta-pill ${diff <= 5 ? 'soon' : ''}">Bus ${idx+1}</div>
-          <div style="font-size:0.8rem; margin-left:10px;">${new Date(e.eta).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-          <div class="eta-mins">${diff === 0 ? 'Arriving' : diff + ' min'}</div>
-        </div>
-      `;
-    }).join('');
-  } catch(e) {
-    panel.innerHTML = 'Error';
-  }
-}
-
-async function refreshAllOpen() {
-  const route = document.getElementById('routeSelect').value;
-  document.getElementById('statTime').textContent = new Date().toLocaleTimeString();
-  for (let stopId of openPanels) {
-    fetchETA(stopId, route);
-  }
-}
-
-function toggleLang() {
-  // Simplified toggle logic
-  lang = (lang === 'zh') ? 'en' : 'zh';
-  document.getElementById('langBtn').textContent = (lang === 'zh') ? 'ENG' : '中文';
-}
-
-init();
-</script>
-</body>
-</html>
+    /* ETA Panel */
+    .eta-panel{ border-top:1px solid var(--border); padding:12px; display:none; background:#161b27; }
+    .eta-row{ 
+        display:flex; justify-content:space-between; align-items:center;
