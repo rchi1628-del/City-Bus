@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <title>城巴實時到站 · Citybus Live ETA</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+
+    :root{
+      --bg:#0f1117;
+      --card:#1a1f2e;
+      --border:#2d3748;
+      --text:#e2e8f0;
+      --muted:#718096;
+      --accent:#f6ad55;
+      --accent2:#ed8936;
+      --green:#68d391;
+      --yellow:#f6ad55;
+      --red:#fc8181;
+    }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      -webkit-text-size-adjust:100%;
+    }
+
+    /* ── Header ── */
+    header{
+      background:linear-gradient(135deg,#1a1f2e,#16213e);
+      border-bottom:1px solid var(--border);
+      padding:12px 16px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      position:sticky;top:0;z-index:100;
+    }
+    .bus-icon{
+      width:40px;height:40px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;flex-shrink:0;
+    }
+    header h1{font-size:1.05rem;font-weight:700;color:#fff;line-height:1.2;}
+    header p{font-size:0.7rem;color:var(--muted);margin-top:1px;}
+    .header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+
+    /* Language toggle */
+    .lang-btn{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:5px 10px;
+      font-size:0.75rem;font-weight:700;
+      color:var(--text);
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .lang-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+    .live-badge{
+      display:flex;align-items:center;gap:5px;
+      background:#1a2a1a;
+      border:1px solid #276227;
+      border-radius:20px;
+      padding:5px 10px;
+      font-size:0.7rem;font-weight:700;color:var(--green);
+      white-space:nowrap;
+    }
+    .live-dot{
+      width:7px;height:7px;background:var(--green);border-radius:50%;
+      animation:pulse 1.5s infinite;
+    }
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+
+    /* ── iOS warning ── */
+    .ios-warn{
+      background:#2a1a0a;
+      border:1px solid #7a4a0a;
+      border-radius:10px;
+      padding:12px 14px;
+      font-size:0.82rem;
+      color:#fbd38d;
+      margin:12px 12px 0;
+      display:none;
+    }
+    .ios-warn strong{display:block;margin-bottom:4px;font-size:0.85rem;}
+
+    /* ── Container ── */
+    .container{max-width:780px;margin:0 auto;padding:14px 12px;}
+
+    /* ── Controls ── */
+    .controls{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+      display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
+      margin-bottom:14px;
+    }
+    .ctrl-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
+    .ctrl-group label{font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+    select{
+      background:var(--bg);border:1px solid var(--border);border-radius:8px;
+      color:var(--text);padding:9px 10px;font-size:0.88rem;width:100%;
+      outline:none;-webkit-appearance:none;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23718096' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+    }
+    select:focus{border-color:var(--accent);}
+    select option{background:#1a1f2e;}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+    button{
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#1a1f2e;border:none;border-radius:8px;
+      padding:9px 16px;font-size:0.88rem;font-weight:700;
+      cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap;
+      -webkit-tap-highlight-color:transparent;
+    }
+    button:active{transform:scale(.97);}
+    button:disabled{opacity:.4;cursor:not-allowed;}
+    .refresh-btn{
+      background:none;color:#63b3ed;
+      border:1px solid #2b4a6f;font-size:0.82rem;padding:9px 14px;
+    }
+
+    /* ── Error ── */
+    .error-msg{
+      background:#2a1a1a;border:1px solid #6b2828;border-radius:8px;
+      padding:11px 14px;color:var(--red);font-size:0.83rem;margin-bottom:12px;
+    }
+
+    /* ── Stats ── */
+    .stats{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+      gap:10px;margin-bottom:14px;
+    }
+    .stat-card{
+      background:var(--card);border:1px solid var(--border);
+      border-radius:10px;padding:12px 14px;
+    }
+    .stat-label{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+    .stat-value{font-size:1.45rem;font-weight:700;color:#fff;}
+    .stat-sub{font-size:0.72rem;color:var(--muted);margin-top:2px;}
+    .stat-value.sm{font-size:.9rem;}
+
+    /* ── Refresh info ── */
+    .refresh-info{font-size:.72rem;color:#4a5568;text-align:right;margin-bottom:8px;}
+
+    /* ── Stop list ── */
+    .stop-list{display:flex;flex-direction:column;gap:8px;}
+    .stop-card{
+      background:var(--card);border:1px solid var(--border);
+      border-radius:10px;overflow:hidden;
+    }
+    .stop-header{
+      display:flex;align-items:center;gap:10px;
+      padding:12px 14px;cursor:pointer;user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .stop-seq{
+      width:30px;height:30px;border-radius:50%;
+      background:#2d3748;display:flex;align-items:center;justify-content:center;
+      font-size:.72rem;font-weight:700;color:#a0aec0;flex-shrink:0;
+    }
+    .stop-name{flex:1;min-width:0;}
+    .stop-name .en{font-size:.9rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stop-name .zh{font-size:.78rem;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stop-toggle{
+      font-size:.68rem;color:var(--muted);
+      background:var(--bg);border:1px solid var(--border);
+      border-radius:6px;padding:3px 8px;cursor:pointer;flex-shrink:0;
+    }
+    .eta-panel{border-top:1px solid var(--border);padding:10px 14px;display:none;}
+    .eta-panel.open{display:block;}
+    .eta-loading{color:var(--muted);font-size:.82rem;}
+
+    /* ETA rows */
+    .eta-list{display:flex;flex-direction:column;gap:7px;}
+    .eta-row{
+      display:flex;align-items:center;gap:9px;
+      padding:8px 11px;background:var(--bg);border-radius:8px;
+    }
+    .eta-pill{
+      font-size:.68rem;font-weight:700;border-radius:4px;
+      padding:2px 7px;background:#2d3748;color:#a0aec0;white-space:nowrap;flex-shrink:0;
+    }
+    .eta-pill.soon  {background:#1a3a1a;color:var(--green);}
+    .eta-pill.medium{background:#3a2a0a;color:var(--yellow);}
+    .eta-pill.late  {background:#2a1a1a;color:var(--red);}
+    .eta-time{font-size:.82rem;color:#cbd5e0;flex:1;min-width:0;}
+    .eta-remark{font-size:.7rem;color:var(--muted);}
+    .eta-mins{font-size:1.05rem;font-weight:700;color:#fff;text-align:right;flex-shrink:0;}
+    .eta-mins small{font-size:.68rem;font-weight:400;color:var(--muted);}
+    .no-eta{font-size:.8rem;color:var(--muted);padding:3px 0;}
+
+    /* ── Empty state ── */
+    .empty-state{text-align:center;padding:50px 20px;color:#4a5568;}
+    .empty-state .icon{font-size:2.8rem;margin-bottom:10px;}
+    .empty-state p{font-size:.88rem;}
+
+    /* ── Spinner ── */
+    .spinner{
+      display:inline-block;width:13px;height:13px;
+      border:2px solid #2d3748;border-top-color:var(--accent);
+      border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;
+    }
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* ── Responsive ── */
+    @media(max-width:480px){
+      header h1{font-size:.95rem;}
+      .ctrl-group{min-width:120px;}
+      .stats{grid-template-columns:repeat(2,1fr);}
+      .stat-value{font-size:1.25rem;}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="bus-icon">🚌</div>
+  <div>
+    <h1 id="hTitle">城巴實時到站時間</h1>
+    <p id="hSub">即時到站資訊 · data.gov.hk</p>
+  </div>
+  <div class="header-right">
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">ENG</button>
+    <div class="live-badge"><div class="live-dot"></div><span id="liveTxt">直播</span></div>
+  </div>
+</header>
+
+<!-- iOS warning -->
+<div class="ios-warn" id="iosWarn">
+  <strong id="iosTitle">📱 iPhone / iPad 提示</strong>
+  <span id="iosTxt">若無法載入路線資料，請用 Safari 開啟此檔案，或將檔案上載至網絡伺服器後再存取。此限制由 iOS 安全政策所致。</span>
+</div>
+
+<div class="container">
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg" style="display:none;"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="ctrl-group" style="flex:2;min-width:170px;">
+      <label id="lblRoute">路線</label>
+      <select id="routeSelect">
+        <option value="">— 載入路線中… —</option>
+      </select>
+    </div>
+    <div class="ctrl-group" style="min-width:130px;">
+      <label id="lblDir">方向</label>
+      <select id="dirSelect">
+        <option value="outbound" id="optOut">往終點站 ➜</option>
+        <option value="inbound" id="optIn">⬅ 往起點站</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button id="loadBtn" onclick="loadStops()"><span id="loadTxt">顯示站點</span></button>
+      <button class="refresh-btn" onclick="refreshAllOpen()" id="refreshBtn" disabled>
+        <span id="refTxt">⟳ 更新</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow" style="display:none;">
+    <div class="stat-card">
+      <div class="stat-label" id="sLblRoute">路線</div>
+      <div class="stat-value" id="statRoute">—</div>
+      <div class="stat-sub" id="statDir">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" id="sLblStops">站數</div>
+      <div class="stat-value" id="statStops">—</div>
+      <div class="stat-sub" id="sSubStops">此路線</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" id="sLblOrigin">起點</div>
+      <div class="stat-value sm" id="statOrigin">—</div>
+      <div class="stat-sub">→ <span id="statDest">—</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" id="sLblUpdated">更新時間</div>
+      <div class="stat-value sm" id="statTime">—</div>
+      <div class="stat-sub" id="sSubAuto">每30秒自動更新</div>
+    </div>
+  </div>
+
+  <div class="refresh-info" id="refreshInfo" style="display:none;">
+    <span id="tapHint">點擊任何站點以查看即時到站時間</span>
+  </div>
+
+  <!-- Stop list -->
+  <div class="stop-list" id="stopList">
+    <div class="empty-state">
+      <div class="icon">🚏</div>
+      <p id="emptyTxt">選擇路線及方向，然後點擊「顯示站點」</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── i18n strings ───────────────────────────────────────────────────────────
+const I18N = {
+  zh: {
+    hTitle:'城巴實時到站時間', hSub:'即時到站資訊 · data.gov.hk',
+    liveTxt:'直播', langBtn:'ENG',
+    iosTitle:'📱 iPhone / iPad 提示',
+    iosTxt:'若無法載入路線資料，請用 Safari 瀏覽器開啟此檔案，或將檔案放至網絡伺服器。此限制由 iOS 安全政策所致。',
+    lblRoute:'路線', lblDir:'方向',
+    optOut:'往終點站 ➜', optIn:'⬅ 往起點站',
+    loadTxt:'顯示站點', refTxt:'⟳ 更新',
+    sLblRoute:'路線', sLblStops:'站數', sSubStops:'此路線',
+    sLblOrigin:'起點', sLblUpdated:'更新時間', sSubAuto:'每30秒自動更新',
+    tapHint:'點擊任何站點以查看即時到站時間',
+    emptyTxt:'選擇路線及方向，然後點擊「顯示站點」',
+    dirOutbound:'往終點站', dirInbound:'往起點站',
+    loading:'載入中…', loadingETA:'載入即時到站時間…',
+    loadingStops:'載入站點中…',
+    noStops:'此路線／方向未有站點資料。',
+    noETA:'目前沒有到站時間資料。',
+    arriving:'即將到達',
+    busNum:(n)=>`第 ${n} 班巴士`,
+    errRoute:'未能載入路線：',
+    errLoad:'錯誤：',
+    etaAway:'後到達',
+    showETA:'▼ 到站',
+    hideETA:'▲ 收起',
+    selectRoute:'— 選擇路線 —',
+    loadingRoutes:'— 載入路線中… —',
+  },
+  en: {
+    hTitle:'Citybus Live ETA', hSub:'Real-time arrival · data.gov.hk',
+    liveTxt:'LIVE', langBtn:'中文',
+    iosTitle:'📱 iPhone / iPad Notice',
+    iosTxt:'If routes fail to load, please open this file in Safari, or host it on a web server. This is an iOS security restriction on local files.',
+    lblRoute:'Route', lblDir:'Direction',
+    optOut:'Outbound ➜', optIn:'⬅ Inbound',
+    loadTxt:'Show Stops', refTxt:'⟳ Refresh',
+    sLblRoute:'Route', sLblStops:'Stops', sSubStops:'on this route',
+    sLblOrigin:'From', sLblUpdated:'Updated', sSubAuto:'auto-refresh every 30s',
+    tapHint:'Tap any stop to load live ETAs',
+    emptyTxt:'Select a route and direction, then click Show Stops',
+    dirOutbound:'Outbound', dirInbound:'Inbound',
+    loading:'Loading…', loadingETA:'Fetching live ETAs…',
+    loadingStops:'Loading stops…',
+    noStops:'No stops found for this route/direction.',
+    noETA:'No upcoming buses found.',
+    arriving:'Arriving',
+    busNum:(n)=>`Bus ${n}`,
+    errRoute:'Could not load routes: ',
+    errLoad:'Error: ',
+    etaAway:'away',
+    showETA:'▼ ETA',
+    hideETA:'▲ Hide',
+    selectRoute:'— Pick a route —',
+    loadingRoutes:'— Loading routes… —',
+  }
+};
+
+let lang = 'zh';
+function t(key){ return I18N[lang][key] || key; }
+
+function applyLang(){
+  const s = I18N[lang];
+  const ids = [
+    'hTitle','hSub','liveTxt','langBtn','iosTitle','iosTxt',
+    'lblRoute','lblDir','loadTxt','refTxt',
+    'sLblRoute','sLblStops','sSubStops','sLblOrigin','sLblUpdated','sSubAuto',
+    'tapHint','emptyTxt'
+  ];
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=s[id]; });
+  document.getElementById('optOut').textContent = s.optOut;
+  document.getElementById('optIn').textContent  = s.optIn;
+  document.documentElement.lang = lang==='zh' ? 'zh-Hant' : 'en';
+  // Re-render stop names if loaded
+  if(allStops.length) renderStopNames();
+}
+
+function toggleLang(){
+  lang = lang==='zh' ? 'en' : 'zh';
+  applyLang();
+}
+
+// ─── iOS detection ──────────────────────────────────────────────────────────
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+if(isIOS() && location.protocol==='file:'){
+  document.getElementById('iosWarn').style.display='block';
+}
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+const BASE = 'https://rt.data.gov.hk/v2/transport/citybus';
+let allStops=[], openPanels=new Set(), autoTimer=null;
+
+async function apiFetch(url){
+  const res = await fetch(url, {mode:'cors'});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const j = await res.json();
+  return j.data;
+}
+
+function showError(msg){
+  const el=document.getElementById('errorMsg');
+  el.textContent=msg; el.style.display=msg?'block':'none';
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function stopLabel(stop){
+  if(lang==='zh') return stop.name_tc || stop.name_en || stop.stopId;
+  return stop.name_en || stop.name_tc || stop.stopId;
+}
+function stopLabelAlt(stop){
+  if(lang==='zh') return stop.name_en || '';
+  return stop.name_tc || '';
+}
+
+// ─── Load routes ─────────────────────────────────────────────────────────────
+async function loadRoutes(){
+  try{
+    const data = await apiFetch(`${BASE}/route/ctb`);
+    const sel  = document.getElementById('routeSelect');
+    sel.innerHTML = `<option value="">${t('selectRoute')}</option>`;
+    data.sort((a,b)=>a.route.localeCompare(b.route,undefined,{numeric:true}));
+    data.forEach(r=>{
+      const opt=document.createElement('option');
+      opt.value=r.route;
+      const orig = lang==='zh' ? (r.orig_tc||r.orig_en) : r.orig_en;
+      const dest = lang==='zh' ? (r.dest_tc||r.dest_en) : r.dest_en;
+      opt.textContent=`${r.route}  (${orig} → ${dest})`;
+      opt.dataset.origEn=r.orig_en||''; opt.dataset.destEn=r.dest_en||'';
+      opt.dataset.origTc=r.orig_tc||''; opt.dataset.destTc=r.dest_tc||'';
+      sel.appendChild(opt);
+    });
+  }catch(e){
+    showError(t('errRoute')+e.message);
+    if(isIOS()) document.getElementById('iosWarn').style.display='block';
+  }
+}
+
+// ─── Load stops ───────────────────────────────────────────────────────────────
+async function loadStops(){
+  showError('');
+  const route=document.getElementById('routeSelect').value;
+  const dir  =document.getElementById('dirSelect').value;
+  if(!route){showError(lang==='zh'?'請先選擇路線。':'Please select a route first.');return;}
+
+  const btn=document.getElementById('loadBtn');
+  btn.disabled=true;
+  btn.innerHTML=`<span class="spinner"></span> ${t('loadingStops')}`;
+
+  document.getElementById('stopList').innerHTML='';
+  document.getElementById('statsRow').style.display='none';
+  document.getElementById('refreshInfo').style.display='none';
+  document.getElementById('refreshBtn').disabled=true;
+  openPanels.clear();
+  if(autoTimer) clearInterval(autoTimer);
+
+  try{
+    const routeStops=await apiFetch(`${BASE}/route-stop/ctb/${route}/${dir}`);
+    if(!routeStops||routeStops.length===0) throw new Error(t('noStops'));
+
+    const stopIds=routeStops.map(s=>s.stop);
+    const details=await batchFetchStops(stopIds);
+    allStops=routeStops.map(s=>({...s,...(details[s.stop]||{}),stopId:s.stop}));
+
+    renderStops(route, dir);
+    updateStats(route, dir, routeStops.length);
+    autoTimer=setInterval(refreshAllOpen, 30000);
+    document.getElementById('refreshBtn').disabled=false;
+
+  }catch(e){
+    showError(t('errLoad')+e.message);
+    document.getElementById('stopList').innerHTML=
+      `<div class="empty-state"><div class="icon">⚠️</div><p>${e.message}</p></div>`;
+    if(isIOS()) document.getElementById('iosWarn').style.display='block';
+  }
+
+  btn.disabled=false;
+  btn.innerHTML=`<span id="loadTxt">${t('loadTxt')}</span>`;
+}
+
+async function batchFetchStops(ids){
+  const result={};
+  const BATCH=8;
+  for(let i=0;i<ids.length;i+=BATCH){
+    await Promise.all(ids.slice(i,i+BATCH).map(async id=>{
+      try{ result[id]=await apiFetch(`${BASE}/stop/${id}`); }
+      catch{ result[id]={}; }
+    }));
+  }
+  return result;
+}
+
+// ─── Render stops ─────────────────────────────────────────────────────────────
+function renderStops(route, dir){
+  const list=document.getElementById('stopList');
+  list.innerHTML='';
+  allStops.forEach((stop,idx)=>{
+    const card=document.createElement('div');
+    card.className='stop-card'; card.id=`card-${stop.stopId}`;
+    card.innerHTML=buildStopCard(stop, idx, route);
+    list.appendChild(card);
+  });
+  document.getElementById('statsRow').style.display='grid';
+  document.getElementById('refreshInfo').style.display='block';
+}
+
+function buildStopCard(stop, idx, route){
+  const primary=stopLabel(stop);
+  const alt    =stopLabelAlt(stop);
+  return `
+    <div class="stop-header" onclick="toggleETA('${stop.stopId}','${route}',${idx})">
+      <div class="stop-seq">${stop.seq||idx+1}</div>
+      <div class="stop-name">
+        <div class="en" id="sn-p-${stop.stopId}">${primary}</div>
+        ${alt?`<div class="zh" id="sn-a-${stop.stopId}">${alt}</div>`:''}
+      </div>
+      <div class="stop-toggle" id="toggle-${stop.stopId}">${t('showETA')}</div>
+    </div>
+    <div class="eta-panel" id="panel-${stop.stopId}"></div>
+  `;
+}
+
+function renderStopNames(){
+  const route=document.getElementById('routeSelect').value;
+  allStops.forEach((stop,idx)=>{
+    const p=document.getElementById(`sn-p-${stop.stopId}`);
+    const a=document.getElementById(`sn-a-${stop.stopId}`);
+    if(p) p.textContent=stopLabel(stop);
+    if(a) a.textContent=stopLabelAlt(stop);
+    const tog=document.getElementById(`toggle-${stop.stopId}`);
+    if(tog) tog.textContent=openPanels.has(stop.stopId)?t('hideETA'):t('showETA');
+  });
+}
+
+// ─── Toggle ETA panel ─────────────────────────────────────────────────────────
+async function toggleETA(stopId, route, idx){
+  const panel =document.getElementById(`panel-${stopId}`);
+  const toggle=document.getElementById(`toggle-${stopId}`);
+  if(panel.classList.contains('open')){
+    panel.classList.remove('open');
+    toggle.textContent=t('showETA');
+    openPanels.delete(stopId);
+  }else{
+    panel.classList.add('open');
+    toggle.textContent=t('hideETA');
+    openPanels.add(stopId);
+    await fetchAndRenderETA(stopId, route);
+  }
+}
+
+// ─── Fetch & render ETA ───────────────────────────────────────────────────────
+async function fetchAndRenderETA(stopId, route){
+  const panel=document.getElementById(`panel-${stopId}`);
+  if(!panel) return;
+  panel.innerHTML=`<div class="eta-loading"><span class="spinner"></span> ${t('loadingETA')}</div>`;
+  try{
+    const etas=await apiFetch(`${BASE}/eta/ctb/${stopId}/${route}`);
+    renderETA(panel, etas);
+  }catch(e){
+    panel.innerHTML=`<div class="no-eta">⚠️ ${e.message}</div>`;
+  }
+}
+
+function renderETA(panel, etas){
+  if(!etas||etas.length===0){
+    panel.innerHTML=`<div class="no-eta">${t('noETA')}</div>`; return;
+  }
+  const now=new Date();
+  const rows=etas.slice(0,3).map((eta,i)=>{
+    const etaTime=eta.eta?new Date(eta.eta):null;
+    let minsText='—', pillClass='';
+    const timeStr=etaTime
+      ?etaTime.toLocaleTimeString(lang==='zh'?'zh-HK':'en-HK',{hour:'2-digit',minute:'2-digit'})
+      :'N/A';
+    const remark=lang==='zh'?(eta.rmk_tc||eta.rmk_en||''):(eta.rmk_en||'');
+    if(etaTime){
+      const diff=Math.round((etaTime-now)/60000);
+      if(diff<=0){minsText=t('arriving');pillClass='soon';}
+      else{
+        minsText=`${diff} ${lang==='zh'?'分鐘':'min'}`;
+        pillClass=diff<=5?'soon':diff<=12?'medium':'late';
+      }
+    }
+    const dot=pillClass==='soon'?'🟢':pillClass==='medium'?'🟡':'🔴';
+    return `
+      <div class="eta-row">
+        <div class="eta-pill ${pillClass}">${dot} ${t('busNum')(i+1)}</div>
+        <div class="eta-time">
+          ${timeStr}
+          ${remark?`<div class="eta-remark">${remark}</div>`:''}
+        </div>
+        <div class="eta-mins">${minsText}<br><small>${minsText!==t('arriving')?t('etaAway'):''}</small></div>
+      </div>`;
+  }).join('');
+  panel.innerHTML=`<div class="eta-list">${rows}</div>`;
+}
+
+// ─── Refresh all open panels ──────────────────────────────────────────────────
+async function refreshAllOpen(){
+  const route=document.getElementById('routeSelect').value; if(!route) return;
+  document.getElementById('statTime').textContent=
+    new Date().toLocaleTimeString(lang==='zh'?'zh-HK':'en-HK',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  for(const stopId of openPanels) await fetchAndRenderETA(stopId,route);
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function updateStats(route, dir, count){
+  const sel=document.getElementById('routeSelect');
+  const opt=sel.options[sel.selectedIndex];
+  const orig=lang==='zh'?(opt?.dataset.origTc||opt?.dataset.origEn):(opt?.dataset.origEn||'—');
+  const dest=lang==='zh'?(opt?.dataset.destTc||opt?.dataset.destEn):(opt?.dataset.destEn||'—');
+  document.getElementById('statRoute').textContent=route;
+  document.getElementById('statDir').textContent  =dir==='outbound'?t('dirOutbound'):t('dirInbound');
+  document.getElementById('statStops').textContent=count;
+  document.getElementById('statOrigin').textContent=orig;
+  document.getElementById('statDest').textContent  =dest;
+  document.getElementById('statTime').textContent  =
+    new Date().toLocaleTimeString(lang==='zh'?'zh-HK':'en-HK',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+applyLang();
+loadRoutes();
+</script>
+</body>
+</html>
