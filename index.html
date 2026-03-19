@@ -66,4 +66,195 @@
     /* ETA Panel */
     .eta-panel{ border-top:1px solid var(--border); padding:12px; display:none; background:#161b27; }
     .eta-row{ 
-        display:flex; justify-content:space-between; align-items:center;
+        display:flex; justify-content:space-between; align-items:center; 
+        padding:8px 0; border-bottom:1px solid #242b3d; 
+    }
+    .eta-row:last-child{ border-bottom:none; }
+    .eta-label{ font-size:0.85rem; color:var(--muted); }
+    .eta-time{ font-weight:700; color:var(--accent); font-size:1rem; }
+
+    /* Loading Spinner */
+    .spinner {
+      width:16px; height:16px; border:2px solid rgba(255,255,255,0.1); border-top:2px solid var(--accent);
+      border-radius:50%; animation:spin 0.8s linear infinite; display:inline-block; vertical-align: middle;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .error-box{ background:#3a1a1a; color:var(--red); padding:10px; border-radius:8px; font-size:0.85rem; margin-bottom:10px; display:none;}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="bus-icon">🚌</div>
+  <div>
+    <h1 style="font-size:1.1rem">城巴實時到站</h1>
+    <p style="font-size:0.7rem; color:var(--muted)">Citybus Live ETA Dashboard</p>
+  </div>
+</header>
+
+<div class="container">
+  <div id="errorDisplay" class="error-box"></div>
+
+  <div class="controls">
+    <div class="search-row">
+        <input type="text" id="routeSearch" placeholder="搜尋路線 (例如: 780)...">
+        <button class="btn-clear" onclick="clearSearch()">清除 Clear</button>
+    </div>
+    
+    <select id="routeSelect">
+      <option value="">— 載入路線中 Loading —</option>
+    </select>
+
+    <select id="dirSelect">
+      <option value="outbound">往終點站 Outbound ➜</option>
+      <option value="inbound">⬅ 往起點站 Inbound</option>
+    </select>
+    
+    <button class="primary" onclick="loadStops()" id="loadBtn">顯示站點 Show Stops</button>
+  </div>
+
+  <div id="stopList" class="stop-list"></div>
+</div>
+
+<script>
+// Use AllOrigins with /raw to bypass CORS strictly for iOS WebKit
+const PROXY = 'https://api.allorigins.win/raw?url=';
+const API_BASE = 'https://rt.data.gov.hk/v2/transport/citybus';
+
+/**
+ * Robust fetcher with Timeout and Error Handling
+ */
+async function secureFetch(url) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for mobile stability
+
+  try {
+    const response = await fetch(`${PROXY}${encodeURIComponent(url)}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    return result.data;
+  } catch (err) {
+    document.getElementById('errorDisplay').style.display = 'block';
+    document.getElementById('errorDisplay').innerText = "連線失敗 Connection Failed: " + err.message;
+    throw err;
+  }
+}
+
+// Search Filter Logic
+document.getElementById('routeSearch').addEventListener('input', (e) => {
+  const term = e.target.value.toUpperCase();
+  const options = document.getElementById('routeSelect').options;
+  for (let i = 1; i < options.length; i++) {
+    options[i].style.display = options[i].text.includes(term) ? 'block' : 'none';
+  }
+});
+
+function clearSearch() {
+  document.getElementById('routeSearch').value = '';
+  const options = document.getElementById('routeSelect').options;
+  for (let i = 0; i < options.length; i++) options[i].style.display = 'block';
+}
+
+/**
+ * Load Initial Route List
+ */
+async function init() {
+  try {
+    const routes = await secureFetch(`${API_BASE}/route/ctb`);
+    const sel = document.getElementById('routeSelect');
+    sel.innerHTML = '<option value="">— 選擇路線 Pick a Route —</option>';
+    
+    routes.sort((a,b) => a.route.localeCompare(b.route, undefined, {numeric:true}))
+          .forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.route;
+            opt.textContent = `${r.route} (${r.orig_tc} ⇄ ${r.dest_tc})`;
+            sel.appendChild(opt);
+          });
+  } catch (e) { console.error("Init failed", e); }
+}
+
+/**
+ * Load Stops for selected route
+ */
+async function loadStops() {
+  const route = document.getElementById('routeSelect').value;
+  const dir = document.getElementById('dirSelect').value;
+  const btn = document.getElementById('loadBtn');
+  if(!route) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 載入中...';
+  const list = document.getElementById('stopList');
+  list.innerHTML = '';
+  document.getElementById('errorDisplay').style.display = 'none';
+
+  try {
+    const stops = await secureFetch(`${API_BASE}/route-stop/ctb/${route}/${dir}`);
+    
+    // Process stops
+    for(let i=0; i<stops.length; i++) {
+      const info = await secureFetch(`${API_BASE}/stop/${stops[i].stop}`);
+      const div = document.createElement('div');
+      div.className = 'stop-card';
+      div.innerHTML = `
+        <div class="stop-header" onclick="toggleETA('${stops[i].stop}','${route}')">
+          <div class="stop-seq">${i+1}</div>
+          <div class="stop-names">
+            <div class="zh">${info.name_tc}</div>
+            <div class="en">${info.name_en}</div>
+          </div>
+          <div style="font-size:0.6rem; color:var(--muted)">▼ ETA</div>
+        </div>
+        <div class="eta-panel" id="eta-${stops[i].stop}"></div>
+      `;
+      list.appendChild(div);
+    }
+  } catch(e) { 
+      list.innerHTML = '<p style="text-align:center; padding:20px; color:var(--red)">未能載入站點 Load Failed</p>';
+  } finally {
+      btn.disabled = false;
+      btn.innerText = '顯示站點 Show Stops';
+  }
+}
+
+/**
+ * Toggle individual stop ETA
+ */
+async function toggleETA(stopId, route) {
+  const panel = document.getElementById(`eta-${stopId}`);
+  if(panel.style.display === 'block') {
+    panel.style.display = 'none';
+  } else {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="text-align:center"><div class="spinner"></div></div>';
+    
+    try {
+        const etas = await secureFetch(`${API_BASE}/eta/ctb/${stopId}/${route}`);
+        if(!etas || etas.length === 0) {
+            panel.innerHTML = '<div class="eta-label">沒有預計到站時間 No Data</div>';
+            return;
+        }
+        
+        panel.innerHTML = etas.slice(0,3).map((e, idx) => {
+          const etaTime = new Date(e.eta);
+          const diff = Math.max(0, Math.round((etaTime - new Date())/60000));
+          const timeStr = etaTime.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+          return `
+            <div class="eta-row">
+                <div class="eta-label">班次 ${idx+1} (${timeStr})</div>
+                <div class="eta-time">${diff === 0 ? '即將抵達' : diff + ' 分鐘'}</div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        panel.innerHTML = '<div class="eta-label" style="color:var(--red)">載入失敗 Error</div>';
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>
